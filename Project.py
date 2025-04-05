@@ -1,123 +1,142 @@
 import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
 import seaborn as sns
+import matplotlib.pyplot as plt
 
-# Load dataset
-file_path = "Rotten Tomatoes Movies.csv"  # Update this with your actual file path
-df = pd.read_csv(file_path)
+# Load your dataset
+df = pd.read_csv('Rotten Tomatoes Movies.csv')  # Replace with your actual file path
 
-# Display basic information
-print("Initial Dataset Overview:")
+# EDA Process
+
+# ------------------------
+# 1. Data Overview
+# ------------------------
+print(df.head())
 print(df.info())
+print(df.describe(include='all'))
+print("Shape:", df.shape)
+print("Null values:\n", df.isnull().sum())
 
-# Handling missing values
-df.dropna(inplace=True)  # Drop rows with missing values
+# ------------------------
+# 2. Data Cleaning
+# ------------------------
+df['in_theaters_date'] = pd.to_datetime(df['in_theaters_date'], errors='coerce')
+df['on_streaming_date'] = pd.to_datetime(df['on_streaming_date'], errors='coerce')
+df['genre'] = df['genre'].astype(str).str.strip()
+df['studio_name'] = df['studio_name'].astype(str).str.strip()
+df = df.drop_duplicates()
 
-# Removing duplicates
-df.drop_duplicates(inplace=True)
-
-# Convert columns to appropriate data types
-# df['Tomatometer Score'] = pd.to_numeric(df['tomatometer_rating'], errors='coerce')
-# df['Audience Score'] = pd.to_numeric(df['audience_rating'], errors='coerce')
-
-# # Fill missing scores with median values
-# df['Tomatometer Score'].fillna(df['Tomatometer Score'].median(), inplace=True)
-# df['Audience Score'].fillna(df['Audience Score'].median(), inplace=True)
-
-# # Convert "Release Year" to numeric for analysis
-# df['Release Year'] = pd.to_numeric(df['Release Year'], errors='coerce')
-
-# ------------------------- 🎯 Data Analysis ----------------------------
-
-# 📌 **1. Top 10 Highest-Rated Movies (Critics & Audience)**
-top_critics = df[['movie_title', 'tomatometer_rating']].sort_values(by='tomatometer_rating', ascending=False).head(10)
-top_audience = df[['movie_title', 'audience_rating']].sort_values(by='audience_rating', ascending=False).head(10)
-
-print("\n🎬 Top 10 Movies by Critics' Scores:")
-print(top_critics)
-
-print("\n🎬 Top 10 Movies by Audience Scores:")
-print(top_audience)
-
-# 📌 **2. Distribution of Ratings (Critics & Audience)**
-plt.figure(figsize=(12, 5))
-sns.histplot(df['Tomatometer Score'], bins=20, kde=True, color='red', label="Critics Score")
-sns.histplot(df['Audience Score'], bins=20, kde=True, color='blue', label="Audience Score", alpha=0.7)
-plt.title("Distribution of Rotten Tomatoes Scores")
-plt.xlabel("Score")
-plt.ylabel("Count")
-plt.legend()
+# ------------------------
+# 3. Univariate Analysis
+# ------------------------
+sns.histplot(df['tomatometer_rating'], kde=True)
+plt.title('Tomatometer Rating Distribution')
 plt.show()
 
-# 📌 **3. Correlation Between Critics' and Audience Ratings**
-plt.figure(figsize=(10, 5))
-sns.scatterplot(x=df['Tomatometer Score'], y=df['Audience Score'], alpha=0.5)
-plt.title("Critics Score vs Audience Score")
-plt.xlabel("Tomatometer Score")
-plt.ylabel("Audience Score")
+sns.boxplot(x=df['audience_rating'])
+plt.title('Audience Rating Boxplot')
 plt.show()
 
-# 📌 **4. Heatmap: Correlation Between Numerical Features**
+sns.countplot(y='genre', data=df, order=df['genre'].value_counts().index[:10])
+plt.title('Top 10 Genres')
+plt.show()
+
+# ------------------------
+# 4. Bivariate Analysis
+# ------------------------
+sns.scatterplot(x='tomatometer_rating', y='audience_rating', data=df)
+plt.title('Critics vs Audience Ratings')
+plt.show()
+
+# Genre-wise average audience rating
+df.groupby('genre')['audience_rating'].mean().sort_values(ascending=False).head(10).plot(kind='barh')
+plt.title('Top Genres by Audience Rating')
+plt.xlabel('Avg Audience Rating')
+plt.show()
+
+sns.boxplot(x='rating', y='tomatometer_rating', data=df)
+plt.title('Rating vs Tomatometer Rating')
+plt.xticks(rotation=45)
+plt.show()
+
+# ------------------------
+# 5. Date-Based Trends
+# ------------------------
+df['year'] = df['in_theaters_date'].dt.year
+df['year'].value_counts().sort_index().plot(kind='line')
+plt.title('Movies Released Per Year')
+plt.xlabel('Year')
+plt.ylabel('Number of Movies')
+plt.grid(True)
+plt.show()
+
+df.groupby('year')[['tomatometer_rating', 'audience_rating']].mean().plot()
+plt.title('Average Ratings Over Years')
+plt.grid(True)
+plt.show()
+
+# ------------------------
+# 6. Outlier Detection
+# ------------------------
+sns.boxplot(x=df['runtime_in_minutes'])
+plt.title('Runtime in Minutes')
+plt.show()
+
+# ------------------------
+# 7. Top Movies by Ratings
+# ------------------------
+print("Top 10 Critic Rated Movies:")
+print(df[['movie_title', 'tomatometer_rating']].sort_values(by='tomatometer_rating', ascending=False).head(10))
+
+print("Top 10 Audience Rated Movies:")
+print(df[['movie_title', 'audience_rating']].sort_values(by='audience_rating', ascending=False).head(10))
+
+print("Top 10 Most Reviewed by Critics:")
+print(df[['movie_title', 'tomatometer_count']].sort_values(by='tomatometer_count', ascending=False).head(10))
+
+df['in_theaters_date'] = pd.to_datetime(df['in_theaters_date'], errors='coerce')
+df['on_streaming_date'] = pd.to_datetime(df['on_streaming_date'], errors='coerce')
+df['year'] = df['in_theaters_date'].dt.year
+
+
+# Visulaization
+
+# 8. Trend of average ratings over the years
+ratings_over_years = df.groupby('year')[['tomatometer_rating', 'audience_rating']].mean()
+ratings_over_years.plot(title='Average Ratings Over Years', figsize=(10, 6))
+plt.ylabel('Average Rating')
+plt.grid(True)
+plt.show()
+
+# 9. Heatmap of average ratings by genre
+genre_rating = df.groupby('genre')[['tomatometer_rating', 'audience_rating']].mean().fillna(0)
+plt.figure(figsize=(10, 8))
+sns.heatmap(genre_rating, annot=True, fmt=".1f", cmap="coolwarm")
+plt.title('Average Ratings by Genre')
+plt.show()
+
+# 10. Top 10 studios by movie count
+top_studios = df['studio_name'].value_counts().head(10)
+top_studios.plot(kind='bar', figsize=(10, 6), title='Top 10 Studios by Number of Movies')
+plt.ylabel('Number of Movies')
+plt.xticks(rotation=45)
+plt.show()
+
+# 11. Scatter plot with regression line: Critics vs Audience Ratings
 plt.figure(figsize=(8, 6))
-sns.heatmap(df.corr(), annot=True, cmap="coolwarm", fmt=".2f", linewidths=0.5)
-plt.title("Correlation Heatmap")
+sns.regplot(x='tomatometer_rating', y='audience_rating', data=df, scatter_kws={'alpha':0.5})
+plt.title('Critics vs Audience Ratings')
 plt.show()
 
-# 📌 **5. Yearly Trends in Movie Ratings**
-yearly_avg = df.groupby("Release Year")[["Tomatometer Score", "Audience Score"]].mean().dropna()
-
-plt.figure(figsize=(12, 5))
-plt.plot(yearly_avg.index, yearly_avg['Tomatometer Score'], marker='o', linestyle='-', color='red', label="Critics Score")
-plt.plot(yearly_avg.index, yearly_avg['Audience Score'], marker='s', linestyle='-', color='blue', label="Audience Score")
-plt.xlabel("Release Year")
-plt.ylabel("Average Score")
-plt.title("Yearly Trend of Rotten Tomatoes Scores")
-plt.legend()
+# 12. Correlation heatmap for numerical values
+numeric_cols = df[['tomatometer_rating', 'audience_rating', 'runtime_in_minutes', 'audience_count', 'tomatometer_count']]
+corr = numeric_cols.corr()
+plt.figure(figsize=(8, 6))
+sns.heatmap(corr, annot=True, cmap='viridis')
+plt.title('Correlation Heatmap')
 plt.show()
 
-# 📌 **6. Most Common Genres**
-genre_counts = df['Genre'].value_counts().head(10)
-print("\n📊 Most Common Genres:")
-print(genre_counts)
-
-plt.figure(figsize=(10, 5))
-genre_counts.plot(kind='bar', color='purple')
-plt.title("Most Common Movie Genres")
-plt.xlabel("Genre")
-plt.ylabel("Number of Movies")
-plt.xticks(rotation=45)
+# 13. Scatter plot of runtime vs tomatometer rating
+plt.figure(figsize=(8, 6))
+sns.scatterplot(x='runtime_in_minutes', y='tomatometer_rating', data=df)
+plt.title('Movie Runtime vs Tomatometer Rating')
 plt.show()
-
-# 📌 **7. Boxplot of Scores by Genre (Top 5 Genres)**
-top_genres = df['Genre'].value_counts().index[:5]
-df_filtered = df[df['Genre'].isin(top_genres)]
-
-plt.figure(figsize=(12, 6))
-sns.boxplot(x='Genre', y='Tomatometer Score', data=df_filtered, palette='coolwarm')
-plt.title("Critics' Score Distribution by Genre")
-plt.xlabel("Genre")
-plt.ylabel("Tomatometer Score")
-plt.xticks(rotation=45)
-plt.show()
-
-plt.figure(figsize=(12, 6))
-sns.boxplot(x='Genre', y='Audience Score', data=df_filtered, palette='coolwarm')
-plt.title("Audience Score Distribution by Genre")
-plt.xlabel("Genre")
-plt.ylabel("Audience Score")
-plt.xticks(rotation=45)
-plt.show()
-
-# ------------------------- 🎯 Key Insights ----------------------------
-
-"""
-🔍 Insights from the analysis:
-- The highest-rated movies differ between critics and audiences.
-- The distribution of critics’ scores is often more concentrated, while audience scores vary more.
-- There is a **moderate correlation** between Critics' and Audience Scores.
-- Over time, the average movie scores **fluctuate**, with some years having higher-rated films.
-- The **most common genres** appear to be Action, Drama, and Comedy.
-- Some genres have wider variations in scores, as seen in boxplots.
-"""
-
